@@ -21,9 +21,12 @@
     - name: Search for MAC address in MAC address table
       cisco.ios.ios_command:
         commands:
+          - terminal length 0
           - "show mac address-table address {{ normalized_mac }}"
       register: mac_result
       failed_when: false
+      vars:
+        ansible_command_timeout: 60
 
     - name: Display raw output for debugging
       ansible.builtin.debug:

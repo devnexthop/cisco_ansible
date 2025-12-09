@@ -10,13 +10,18 @@
           - show spanning-tree summary
       register: stp_result
       failed_when: false
+      vars:
+        ansible_command_timeout: 60
 
     - name: Get spanning tree mode details
       cisco.ios.ios_command:
         commands:
+          - terminal length 0
           - show spanning-tree
       register: stp_detail
       failed_when: false
+      vars:
+        ansible_command_timeout: 120
 
     - name: Show connection result
       ansible.builtin.debug:

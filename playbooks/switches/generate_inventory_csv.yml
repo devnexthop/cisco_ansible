@@ -17,9 +17,12 @@
     - name: Get switch version information
       cisco.ios.ios_command:
         commands:
+          - terminal length 0
           - show version
       register: version_result
       failed_when: false
+      vars:
+        ansible_command_timeout: 60
 
     - name: Extract software version
       ansible.builtin.set_fact:

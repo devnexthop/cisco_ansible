@@ -11,12 +11,20 @@
         state: directory
         mode: '0755'
 
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+
     - name: Get running configuration
       cisco.ios.ios_command:
         commands:
           - show running-config
       register: running_config
       failed_when: false
+      vars:
+        ansible_command_timeout: 180
 
     - name: Save running configuration to file
       delegate_to: localhost
@@ -34,6 +42,8 @@
           - show startup-config
       register: startup_config
       failed_when: false
+      vars:
+        ansible_command_timeout: 180
 
     - name: Save startup configuration to file
       delegate_to: localhost
