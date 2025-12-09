@@ -1,0 +1,130 @@
+---
+- name: Generate Switch Inventory CSV Report
+  hosts: switches
+  gather_facts: no
+  vars:
+    csv_output_dir: "reports"
+    csv_filename: "switch_inventory_{{ ansible_date_time.epoch }}.csv"
+
+  tasks:
+    - name: Create reports directory
+      delegate_to: localhost
+      ansible.builtin.file:
+        path: "{{ csv_output_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Get switch version information
+      cisco.ios.ios_command:
+        commands:
+          - show version
+      register: version_result
+      failed_when: false
+
+    - name: Extract software version
+      ansible.builtin.set_fact:
+        software_version: "{{ version_result.stdout[0] | regex_search('Version (\\S+)', 'multiline') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract model number (PID) - Method 1
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('Model Number\\s+:\\s+(\\S+)', 'multiline', 'ignorecase') | first | default('') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract model number (PID) - Method 2 (from processor line)
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('(WS-\\S+|CISCO\\d+\\S+)', 'multiline') | first | default(model_pid | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+        - (model_pid | default('')) == ""
+
+    - name: Extract model number (PID) - Method 3 (from system image)
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('System image file is.*/([^/]+)/', 'multiline', 'ignorecase') | first | default(model_pid | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+        - (model_pid | default('')) == "" or model_pid == "Unknown"
+
+    - name: Extract serial number
+      ansible.builtin.set_fact:
+        serial_number: "{{ version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)', 'multiline', 'ignorecase') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract hostname
+      ansible.builtin.set_fact:
+        device_hostname: "{{ version_result.stdout[0] | regex_search('^([^\\s]+)\\s+uptime', 'multiline') | first | default(inventory_hostname) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract IOS version details
+      ansible.builtin.set_fact:
+        ios_version: "{{ version_result.stdout[0] | regex_search('IOS.*Version (\\S+)', 'multiline', 'ignorecase') | first | default(software_version | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract ROM version
+      ansible.builtin.set_fact:
+        rom_version: "{{ version_result.stdout[0] | regex_search('ROM:.*Version (\\S+)', 'multiline', 'ignorecase') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Store inventory data
+      ansible.builtin.set_fact:
+        inventory_data:
+          hostname: "{{ device_hostname | default(inventory_hostname) }}"
+          ip_address: "{{ ansible_host }}"
+          model_pid: "{{ model_pid | default('Unknown') }}"
+          software_version: "{{ software_version | default('Unknown') }}"
+          ios_version: "{{ ios_version | default(software_version | default('Unknown')) }}"
+          rom_version: "{{ rom_version | default('Unknown') }}"
+          serial_number: "{{ serial_number | default('Unknown') }}"
+
+    - name: Display inventory data
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          INVENTORY DATA
+          ========================================
+          Hostname: {{ inventory_data.hostname }}
+          IP Address: {{ inventory_data.ip_address }}
+          Model (PID): {{ inventory_data.model_pid }}
+          Software Version: {{ inventory_data.software_version }}
+          Serial Number: {{ inventory_data.serial_number }}
+          ========================================
+
+    - name: Collect all inventory data
+      ansible.builtin.set_fact:
+        all_inventory: "{{ all_inventory | default([]) + [inventory_data] }}"
+
+    - name: Generate CSV header
+      delegate_to: localhost
+      ansible.builtin.copy:
+        content: "Hostname,IP Address,Model (PID),Software Version,IOS Version,ROM Version,Serial Number\n"
+        dest: "{{ csv_output_dir }}/{{ csv_filename }}"
+        mode: '0644'
+      run_once: true
+
+    - name: Append inventory data to CSV
+      delegate_to: localhost
+      ansible.builtin.lineinfile:
+        path: "{{ csv_output_dir }}/{{ csv_filename }}"
+        line: "{{ inventory_data.hostname }},{{ inventory_data.ip_address }},{{ inventory_data.model_pid }},{{ inventory_data.software_version }},{{ inventory_data.ios_version }},{{ inventory_data.rom_version }},{{ inventory_data.serial_number }}"
+        create: false
+
+    - name: Display CSV file location
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg: "CSV report generated: {{ csv_output_dir }}/{{ csv_filename }}"
+      run_once: true
+

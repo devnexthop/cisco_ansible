@@ -1,0 +1,14 @@
+---
+# Ansible Galaxy Collections Requirements
+collections:
+  - name: cisco.ios
+    version: ">=2.0.0"
+  - name: cisco.nxos
+    version: ">=2.0.0"
+  - name: cisco.asa
+    version: ">=2.0.0"
+  - name: ansible.netcommon
+    version: ">=3.0.0"
+  - name: community.general
+    version: ">=5.0.0"
+

@@ -1,0 +1,21 @@
+---
+# Ansible Lint Configuration
+skip_list:
+  - 'schema[inventory]'
+  - 'schema[meta]'
+  - 'schema[playbook]'
+  - 'schema[tasks]'
+  - 'schema[vars]'
+  - 'name[casing]'
+  - 'name[template]'
+
+exclude_paths:
+  - .git
+  - .github
+  - backups/
+  - reports/
+  - .venv/
+  - venv/
+
+verbosity: 1
+

@@ -36,3 +36,9 @@ credentials.yml
 # Ansible Galaxy
 *.tar.gz
 
+# Generated reports and backups
+reports/*.csv
+backups/
+!backups/.gitkeep
+!reports/.gitkeep
+

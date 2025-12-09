@@ -1,0 +1,72 @@
+---
+- name: Verify Switch Versions
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Get switch version information
+      cisco.ios.ios_command:
+        commands:
+          - show version
+      register: version_result
+      failed_when: false
+
+    - name: Extract software version
+      ansible.builtin.set_fact:
+        software_version: "{{ version_result.stdout[0] | regex_search('Version (\\S+)', 'multiline') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract model number (PID)
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('(WS-\\S+|CISCO\\d+\\S+|\\w+\\d+[A-Z]+)', 'multiline') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract serial number
+      ansible.builtin.set_fact:
+        serial_number: "{{ version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)', 'multiline') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract uptime
+      ansible.builtin.set_fact:
+        uptime: "{{ version_result.stdout[0] | regex_search('uptime is (.+)', 'multiline', 'ignorecase') | first | default('Unknown') }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Extract hostname
+      ansible.builtin.set_fact:
+        device_hostname: "{{ version_result.stdout[0] | regex_search('^([^\\s]+)\\s+uptime', 'multiline') | first | default(inventory_hostname) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Display switch version information
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          SWITCH VERSION INFORMATION
+          ========================================
+          Hostname: {{ device_hostname | default(inventory_hostname) }}
+          IP Address: {{ ansible_host }}
+          Model (PID): {{ model_pid | default('Unknown') }}
+          Software Version: {{ software_version | default('Unknown') }}
+          Serial Number: {{ serial_number | default('Unknown') }}
+          Uptime: {{ uptime | default('Unknown') }}
+          ========================================
+
+    - name: Store version data for CSV export
+      ansible.builtin.set_fact:
+        switch_versions:
+          hostname: "{{ device_hostname | default(inventory_hostname) }}"
+          ip_address: "{{ ansible_host }}"
+          model_pid: "{{ model_pid | default('Unknown') }}"
+          software_version: "{{ software_version | default('Unknown') }}"
+          serial_number: "{{ serial_number | default('Unknown') }}"
+          uptime: "{{ uptime | default('Unknown') }}"
+

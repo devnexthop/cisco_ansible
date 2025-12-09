@@ -7,17 +7,22 @@ This repository contains Ansible playbooks, roles, and configurations for automa
 ```
 cisco_ansible/
 ├── ansible.cfg          # Ansible configuration file
+├── .ansible-lint        # Ansible lint configuration
+├── Makefile             # Makefile for common tasks
+├── requirements.txt    # Python dependencies
+├── collections/         # Ansible collections requirements
+│   └── requirements.yml
 ├── inventory/           # Inventory files for devices
 │   └── hosts.yml        # Main inventory file
 ├── playbooks/           # Ansible playbooks
 │   ├── firewalls/       # Firewall-specific playbooks
-│   │   └── asa-config.yml
 │   ├── routers/         # Router-specific playbooks
-│   │   └── iosxe-router-config.yml
 │   ├── switches/        # Switch-specific playbooks
 │   │   ├── backup_configs.yml
 │   │   ├── find_mac_address.yml
-│   │   └── verify_spanning_tree.yml
+│   │   ├── generate_inventory_csv.yml
+│   │   ├── verify_spanning_tree.yml
+│   │   └── verify_switch_versions.yml
 │   └── testing/         # Testing and validation playbooks
 │       ├── test_inventory.yml
 │       ├── test_ping.yml
@@ -30,7 +35,9 @@ cisco_ansible/
 │   ├── nxos.yml         # Variables for NX-OS devices
 │   ├── asa.yml          # Variables for ASA devices
 │   └── iosxe.yml        # Variables for IOS-XE devices
-└── host_vars/           # Host-specific variables
+├── host_vars/           # Host-specific variables
+├── backups/              # Configuration backups (gitignored)
+└── reports/             # Generated reports (gitignored)
 ```
 
 ## Prerequisites
@@ -45,12 +52,25 @@ cisco_ansible/
 
 ## Installation
 
-1. Install Ansible:
+### Quick Setup (using Makefile):
 ```bash
-pip install ansible
+make install              # Install Python dependencies
+make install-collections  # Install Ansible collections
+```
+
+### Manual Installation:
+
+1. Install Python dependencies:
+```bash
+pip install -r requirements.txt
 ```
 
 2. Install required collections:
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+```
+
+Or install individually:
 ```bash
 ansible-galaxy collection install cisco.ios
 ansible-galaxy collection install cisco.nxos
@@ -83,6 +103,13 @@ ansible-playbook playbooks/switches/find_mac_address.yml --extra-vars 'mac_addre
 
 # Verify spanning tree configuration
 ansible-playbook playbooks/switches/verify_spanning_tree.yml
+
+# Verify switch versions
+ansible-playbook playbooks/switches/verify_switch_versions.yml
+
+# Generate CSV inventory report (PID and Software Version)
+ansible-playbook playbooks/switches/generate_inventory_csv.yml
+# Output: reports/switch_inventory_<timestamp>.csv
 ```
 
 **Routers:**
@@ -120,6 +147,14 @@ ansible all -m ping
 ### Run ad-hoc commands:
 ```bash
 ansible ios -m cisco.ios.ios_command -a "commands='show version'"
+```
+
+### Using Makefile:
+```bash
+make lint              # Run ansible-lint on playbooks
+make test             # Run test playbooks
+make inventory-csv    # Generate switch inventory CSV report
+make clean            # Remove generated files (backups, reports)
 ```
 
 ## Supported Platforms
