@@ -1,0 +1,83 @@
+---
+- name: Find MAC Address on Switches
+  hosts: switches
+  gather_facts: no
+  vars:
+    # MAC address to search for (can be overridden with --extra-vars)
+    # Accepts formats: xxxx.xxxx.xxxx or xxxx-xxxx-xxxx
+    search_mac: "{{ mac_address | default('') }}"
+
+  tasks:
+    - name: Normalize MAC address format (convert dashes to dots)
+      ansible.builtin.set_fact:
+        normalized_mac: "{{ search_mac | replace('-', '.') | replace(':', '.') }}"
+      when: search_mac != ""
+
+    - name: Validate MAC address is provided
+      ansible.builtin.fail:
+        msg: "MAC address not provided! Use: ansible-playbook playbooks/switches/find_mac_address.yml --extra-vars 'mac_address=xxxx.xxxx.xxxx'"
+      when: search_mac == ""
+
+    - name: Search for MAC address in MAC address table
+      cisco.ios.ios_command:
+        commands:
+          - "show mac address-table address {{ normalized_mac }}"
+      register: mac_result
+      failed_when: false
+
+    - name: Extract MAC address information from output
+      ansible.builtin.set_fact:
+        mac_output_text: "{{ mac_result.stdout[0] | default('') }}"
+        mac_output_lines: "{{ (mac_result.stdout[0] | default('')).split('\n') }}"
+      when: 
+        - mac_result.stdout is defined
+        - mac_result.stdout | length > 0
+
+    - name: Find line containing the MAC address
+      ansible.builtin.set_fact:
+        mac_entry_line: "{{ mac_output_lines | select('search', normalized_mac | upper) | list | first | default('') }}"
+      when: 
+        - mac_output_lines is defined
+        - normalized_mac | upper in mac_output_text | upper
+
+    - name: Extract port and VLAN from MAC entry line
+      ansible.builtin.set_fact:
+        mac_port: "{{ mac_entry_line | regex_search('(Gi\\d+/\\d+/\\d+|Te\\d+/\\d+/\\d+|Fa\\d+/\\d+/\\d+|Po\\d+)') | first | default('Not found') }}"
+        mac_vlan: "{{ mac_entry_line | regex_search('^(\\d+)\\s+') | first | default('Not found') }}"
+      when: 
+        - mac_entry_line is defined
+        - mac_entry_line != ""
+        - mac_entry_line | length > 0
+
+    - name: Display MAC address found with port information
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          ✓ MAC ADDRESS FOUND
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          MAC Address: {{ normalized_mac }}
+          Port: {{ mac_port | default('Not found') }}
+          VLAN: {{ mac_vlan | default('Not found') }}
+          ========================================
+      when: 
+        - mac_entry_line is defined
+        - mac_entry_line != ""
+        - mac_entry_line | length > 0
+        - mac_port is defined
+        - mac_port != "Not found"
+
+    - name: Display MAC address not found
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          ✗ MAC ADDRESS NOT FOUND
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          MAC Address: {{ normalized_mac }}
+          ========================================
+      when: 
+        - mac_entry_line is not defined or mac_entry_line == "" or mac_port is not defined or mac_port == "Not found"
+

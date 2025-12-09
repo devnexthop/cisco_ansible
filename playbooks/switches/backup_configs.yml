@@ -1,0 +1,51 @@
+---
+- name: Backup Switch Configurations
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Create backup directory
+      delegate_to: localhost
+      ansible.builtin.file:
+        path: "backups/{{ inventory_hostname }}"
+        state: directory
+        mode: '0755'
+
+    - name: Get running configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: running_config
+      failed_when: false
+
+    - name: Save running configuration to file
+      delegate_to: localhost
+      ansible.builtin.copy:
+        content: "{{ running_config.stdout[0] }}"
+        dest: "backups/{{ inventory_hostname }}/running-config-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Get startup configuration
+      cisco.ios.ios_command:
+        commands:
+          - show startup-config
+      register: startup_config
+      failed_when: false
+
+    - name: Save startup configuration to file
+      delegate_to: localhost
+      ansible.builtin.copy:
+        content: "{{ startup_config.stdout[0] }}"
+        dest: "backups/{{ inventory_hostname }}/startup-config-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
+      when: 
+        - startup_config.stdout is defined
+        - startup_config.stdout | length > 0
+
+    - name: Display backup status
+      ansible.builtin.debug:
+        msg: "Configuration backed up for {{ inventory_hostname }} to backups/{{ inventory_hostname }}/"
+

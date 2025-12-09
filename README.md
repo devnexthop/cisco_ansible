@@ -15,11 +15,14 @@ cisco_ansible/
 │   ├── routers/         # Router-specific playbooks
 │   │   └── iosxe-router-config.yml
 │   ├── switches/        # Switch-specific playbooks
-│   │   ├── ios-switch-config.yml
-│   │   └── nxos-switch-config.yml
+│   │   ├── backup_configs.yml
+│   │   ├── find_mac_address.yml
+│   │   └── verify_spanning_tree.yml
 │   └── testing/         # Testing and validation playbooks
-│       ├── connectivity-test.yml
-│       └── device-info.yml
+│       ├── test_inventory.yml
+│       ├── test_ping.yml
+│       ├── test_snmp.yml
+│       └── test_ssh.yml
 ├── roles/               # Reusable Ansible roles
 ├── group_vars/          # Group-specific variables
 │   ├── all.yml          # Variables for all devices
@@ -72,11 +75,14 @@ ansible-vault encrypt_string 'your_password' --name 'ansible_password'
 
 **Switches:**
 ```bash
-# Configure IOS switches
-ansible-playbook playbooks/switches/ios-switch-config.yml
+# Backup switch configurations
+ansible-playbook playbooks/switches/backup_configs.yml
 
-# Configure NX-OS switches
-ansible-playbook playbooks/switches/nxos-switch-config.yml
+# Find MAC address on switches
+ansible-playbook playbooks/switches/find_mac_address.yml --extra-vars 'mac_address=xxxx.xxxx.xxxx'
+
+# Verify spanning tree configuration
+ansible-playbook playbooks/switches/verify_spanning_tree.yml
 ```
 
 **Routers:**
@@ -93,11 +99,17 @@ ansible-playbook playbooks/firewalls/asa-config.yml
 
 **Testing:**
 ```bash
-# Test connectivity to all devices
-ansible-playbook playbooks/testing/connectivity-test.yml
+# Check inventory information
+ansible-playbook playbooks/testing/test_inventory.yml
 
-# Gather device information
-ansible-playbook playbooks/testing/device-info.yml
+# Test ping connectivity
+ansible-playbook playbooks/testing/test_ping.yml
+
+# Test SNMP connectivity
+ansible-playbook playbooks/testing/test_snmp.yml
+
+# Test SSH connectivity
+ansible-playbook playbooks/testing/test_ssh.yml
 ```
 
 ### Test connectivity:

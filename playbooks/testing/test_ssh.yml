@@ -1,0 +1,22 @@
+---
+- name: SSH Test
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Test SSH connection - Get version
+      cisco.ios.ios_command:
+        commands:
+          - show version
+      register: ssh_result
+      failed_when: false
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ 'SUCCESS ✓' if ssh_result.failed == false else 'FAILED ✗' }}"
+
+    - name: Show version output (first 10 lines)
+      ansible.builtin.debug:
+        msg: "{{ ssh_result.stdout[0].split('\n')[:10] }}"
+      when: not ssh_result.failed
+

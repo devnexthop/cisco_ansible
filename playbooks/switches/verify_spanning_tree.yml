@@ -1,0 +1,62 @@
+---
+- name: Verify Spanning Tree Mode
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Get spanning tree summary
+      cisco.ios.ios_command:
+        commands:
+          - show spanning-tree summary
+      register: stp_result
+      failed_when: false
+
+    - name: Get spanning tree mode details
+      cisco.ios.ios_command:
+        commands:
+          - show spanning-tree
+      register: stp_detail
+      failed_when: false
+
+    - name: Show connection result
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ 'SUCCESS ✓' if (stp_result.failed is defined and stp_result.failed == false and stp_result.stdout is defined) else 'FAILED ✗' }}"
+
+    - name: Display spanning tree summary
+      ansible.builtin.debug:
+        msg: "{{ stp_result.stdout[0] }}"
+      when: 
+        - stp_result.failed is defined
+        - stp_result.failed == false
+        - stp_result.stdout is defined
+        - stp_result.stdout | length > 0
+
+    - name: Show error if summary command failed
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: Could not retrieve spanning tree summary. Error: {{ stp_result | default('Unknown error') }}"
+      when: 
+        - stp_result.failed is not defined or stp_result.failed == true or stp_result.stdout is not defined
+
+    - name: Display spanning tree mode (first 20 lines)
+      ansible.builtin.debug:
+        msg: "{{ stp_detail.stdout[0].split('\n')[:20] }}"
+      when: 
+        - stp_detail.failed is defined
+        - stp_detail.failed == false
+        - stp_detail.stdout is defined
+        - stp_detail.stdout | length > 0
+
+    - name: Extract and display STP mode
+      ansible.builtin.set_fact:
+        stp_mode: "{{ stp_result.stdout[0] | regex_search('(rapid-pvst|pvst|mst|rstp|stp)') | default('Unknown') }}"
+      when: 
+        - stp_result.failed is defined
+        - stp_result.failed == false
+        - stp_result.stdout is defined
+        - stp_result.stdout | length > 0
+
+    - name: Display STP mode summary
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: STP Mode = {{ stp_mode | default('Could not determine') }}"
+      when: stp_mode is defined
+

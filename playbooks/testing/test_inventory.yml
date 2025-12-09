@@ -1,0 +1,19 @@
+---
+- name: Inventory Check
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Display device info
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "Device: {{ inventory_hostname }}"
+          - "IP: {{ ansible_host }}"
+          - "User: {{ ansible_user }}"
+          - "Type: {{ device_type }}"
+          - "Site: {{ site }}"
+          - "SNMP Community: {{ snmp_ro_community }}"
+          - "========================================"
+
