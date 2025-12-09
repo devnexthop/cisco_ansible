@@ -1,0 +1,8 @@
+---
+# Variables specific to NX-OS devices
+ansible_network_os: nxos
+ansible_become: yes
+ansible_become_method: enable
+ansible_become_password: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+

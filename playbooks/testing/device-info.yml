@@ -1,0 +1,44 @@
+---
+# Device Information Gathering Playbook
+# This playbook collects information from all devices
+
+- name: Gather Device Information
+  hosts: all
+  gather_facts: no
+  connection: network_cli
+  
+  tasks:
+    - name: Gather IOS device information
+      cisco.ios.ios_command:
+        commands:
+          - show version
+          - show inventory
+          - show running-config | include hostname
+          - show clock
+      register: device_info
+      when: ansible_network_os == 'ios' or ansible_network_os == 'iosxe'
+    
+    - name: Gather NX-OS device information
+      cisco.nxos.nxos_command:
+        commands:
+          - show version
+          - show inventory
+          - show running-config | include hostname
+          - show clock
+      register: device_info
+      when: ansible_network_os == 'nxos'
+    
+    - name: Gather ASA device information
+      cisco.asa.asa_command:
+        commands:
+          - show version
+          - show inventory
+          - show running-config | include hostname
+          - show clock
+      register: device_info
+      when: ansible_network_os == 'asa'
+    
+    - name: Display device information
+      debug:
+        var: device_info.stdout_lines
+
