@@ -18,16 +18,32 @@
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
-    - name: Extract model number (PID)
+    - name: Extract model number (PID) - Method 1 (Model Number line)
       ansible.builtin.set_fact:
-        model_pid: "{{ version_result.stdout[0] | regex_search('(WS-\\S+|CISCO\\d+\\S+|\\w+\\d+[A-Z]+)', 'multiline') | first | default('Unknown') }}"
+        model_pid: "{{ version_result.stdout[0] | regex_search('Model Number\\s+:\\s+(\\S+)', 'multiline', 'ignorecase') | first | default('') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
+    - name: Extract model number (PID) - Method 2 (Processor line)
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('(WS-\\S+|CISCO\\d+\\S+)', 'multiline') | first | default(model_pid | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+        - (model_pid | default('')) == ""
+
+    - name: Extract model number (PID) - Method 3 (System image)
+      ansible.builtin.set_fact:
+        model_pid: "{{ version_result.stdout[0] | regex_search('System image file is.*/([^/]+)/', 'multiline', 'ignorecase') | first | default(model_pid | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+        - (model_pid | default('')) == "" or model_pid == "Unknown"
+
     - name: Extract serial number
       ansible.builtin.set_fact:
-        serial_number: "{{ version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)', 'multiline') | first | default('Unknown') }}"
+        serial_number: "{{ version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)', 'multiline', 'ignorecase') | first | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
@@ -46,6 +62,13 @@
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
+    - name: Extract IOS version details
+      ansible.builtin.set_fact:
+        ios_version: "{{ version_result.stdout[0] | regex_search('IOS.*Version (\\S+)', 'multiline', 'ignorecase') | first | default(software_version | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
     - name: Display switch version information
       ansible.builtin.debug:
         msg: |
@@ -56,17 +79,7 @@
           IP Address: {{ ansible_host }}
           Model (PID): {{ model_pid | default('Unknown') }}
           Software Version: {{ software_version | default('Unknown') }}
+          IOS Version: {{ ios_version | default(software_version | default('Unknown')) }}
           Serial Number: {{ serial_number | default('Unknown') }}
           Uptime: {{ uptime | default('Unknown') }}
           ========================================
-
-    - name: Store version data for CSV export
-      ansible.builtin.set_fact:
-        switch_versions:
-          hostname: "{{ device_hostname | default(inventory_hostname) }}"
-          ip_address: "{{ ansible_host }}"
-          model_pid: "{{ model_pid | default('Unknown') }}"
-          software_version: "{{ software_version | default('Unknown') }}"
-          serial_number: "{{ serial_number | default('Unknown') }}"
-          uptime: "{{ uptime | default('Unknown') }}"
-
