@@ -170,9 +170,56 @@ EOF
 
 ## Removing Devices
 
+### Commenting Out vs Deleting
+
+You have two options when removing a device:
+
+#### Option 1: Comment Out (Temporary Removal)
+Use `#` to comment out the device - useful if you might re-enable it later:
+
+```yaml
+ios:
+  hosts:
+    ios-switch-01:
+      ansible_host: 192.168.1.10
+      ansible_network_os: ios
+    # ios-switch-02:  # ← Commented out (temporary)
+    #   ansible_host: 192.168.1.11
+    #   ansible_network_os: ios
+    ios-switch-03:
+      ansible_host: 192.168.1.12
+      ansible_network_os: ios
+```
+
+**With commenting:**
+- Device is ignored by Ansible
+- Easy to uncomment later
+- `host_vars/` file can stay (won't be used)
+- Good for temporary maintenance
+
+#### Option 2: Delete (Permanent Removal)
+Completely remove the device entry:
+
+```yaml
+ios:
+  hosts:
+    ios-switch-01:
+      ansible_host: 192.168.1.10
+      ansible_network_os: ios
+    # ios-switch-02 completely removed
+    ios-switch-03:
+      ansible_host: 192.168.1.12
+      ansible_network_os: ios
+```
+
+**With deletion:**
+- Device is completely gone from inventory
+- Cleaner inventory file
+- Should remove `host_vars/` file (optional but recommended)
+
 ### Remove a Single Device
 
-Simply delete the device entry from the inventory file:
+Simply delete or comment out the device entry from the inventory file:
 
 **Before:**
 ```yaml
@@ -253,12 +300,30 @@ all:
 
 ### Clean Up Host Variables
 
-After removing a device, also remove its host-specific variables:
+**Important:** When you remove a device from the inventory:
+
+#### If you DELETE the device entry:
+- **Technically, you don't NEED to remove the host_vars file** - Ansible won't use it because the host doesn't exist in the inventory
+- **However, it's BEST PRACTICE to remove it** to avoid confusion and keep your repository clean
+- The host_vars file will just sit there unused
+
+#### If you COMMENT OUT the device with `#`:
+- Ansible will ignore the commented device
+- The host_vars file still exists but won't be used
+- You can leave it if you plan to uncomment later, or remove it for cleanup
+
+**Recommendation:** Always clean up host_vars files after removing devices:
 
 ```bash
 # Remove host variable file if it exists
 rm host_vars/switch-01.yml
 ```
+
+**Why clean up?**
+- Prevents confusion about which devices are active
+- Keeps repository organized
+- Avoids accidentally using old variables if device is re-added with different settings
+- Makes it clear the device is fully removed, not just commented out
 
 ## Verifying Inventory Changes
 
@@ -345,10 +410,14 @@ switches:
       ansible_network_os: ios
 ```
 
-### Step 2: Remove host variables (if exists)
+### Step 2: Remove host variables (optional but recommended)
 ```bash
+# Optional: Remove host variable file to keep repository clean
+# Ansible won't use it anyway since the device is removed, but cleanup is good practice
 rm host_vars/switch-02.yml
 ```
+
+**Note:** You don't technically need to remove the host_vars file - Ansible won't use it for a device that doesn't exist in the inventory. However, removing it keeps your repository clean and prevents confusion.
 
 ### Step 3: Verify device is removed
 ```bash
@@ -442,8 +511,9 @@ ansible switch-01 -m ping -vvv
 
 ### Remove Device
 1. Open `inventory/hosts.yml`
-2. Delete device entry
-3. Remove `host_vars/<device-name>.yml` if exists
+2. Delete device entry (or comment it out with `#`)
+3. **Optional but recommended:** Remove `host_vars/<device-name>.yml` if exists
+   - Not required (Ansible won't use it), but keeps repository clean
 4. Save file
 5. Verify: `ansible-inventory --list`
 
@@ -534,7 +604,8 @@ all:
 ## Summary
 
 - **Adding**: Add device entry to `inventory/hosts.yml` with `ansible_host` and `ansible_network_os`
-- **Removing**: Delete device entry from `inventory/hosts.yml` and remove `host_vars/` file if exists
+- **Removing**: Delete device entry from `inventory/hosts.yml` (or comment with `#`)
+- **Host Variables**: Removing `host_vars/` file is optional - Ansible won't use it for removed devices, but cleanup is recommended
 - **Verifying**: Use `ansible-inventory --list` and `ansible <device> -m ping`
 - **Organizing**: Use nested groups for sites, locations, or functions
 - **Best Practice**: Test connectivity after any inventory changes
