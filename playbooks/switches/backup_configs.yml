@@ -6,8 +6,9 @@
   tasks:
     - name: Create backup directory
       delegate_to: localhost
+      become: yes
       ansible.builtin.file:
-        path: "backups/{{ inventory_hostname }}"
+        path: "/backup/{{ inventory_hostname }}"
         state: directory
         mode: '0755'
 
@@ -28,9 +29,10 @@
 
     - name: Save running configuration to file
       delegate_to: localhost
+      become: yes
       ansible.builtin.copy:
         content: "{{ running_config.stdout[0] }}"
-        dest: "backups/{{ inventory_hostname }}/running-config-{{ ansible_date_time.epoch }}.txt"
+        dest: "/backup/{{ inventory_hostname }}/running-config-{{ ansible_date_time.epoch }}.txt"
         mode: '0644'
       when: 
         - running_config.stdout is defined
@@ -47,9 +49,10 @@
 
     - name: Save startup configuration to file
       delegate_to: localhost
+      become: yes
       ansible.builtin.copy:
         content: "{{ startup_config.stdout[0] }}"
-        dest: "backups/{{ inventory_hostname }}/startup-config-{{ ansible_date_time.epoch }}.txt"
+        dest: "/backup/{{ inventory_hostname }}/startup-config-{{ ansible_date_time.epoch }}.txt"
         mode: '0644'
       when: 
         - startup_config.stdout is defined
@@ -57,5 +60,5 @@
 
     - name: Display backup status
       ansible.builtin.debug:
-        msg: "Configuration backed up for {{ inventory_hostname }} to backups/{{ inventory_hostname }}/"
+        msg: "Configuration backed up for {{ inventory_hostname }} to /backup/{{ inventory_hostname }}/"
 

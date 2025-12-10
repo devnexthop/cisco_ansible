@@ -20,3 +20,4 @@
         var: snmp_result.stdout
       when: snmp_result.rc == 0
 
+

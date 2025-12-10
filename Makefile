@@ -30,3 +30,4 @@ clean:
 inventory-csv:
 	ansible-playbook playbooks/switches/generate_inventory_csv.yml
 
+

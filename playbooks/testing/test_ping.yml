@@ -18,3 +18,4 @@
           - "{{ inventory_hostname }} ({{ ansible_host }}): {{ 'SUCCESS ✓' if ping_result.rc == 0 else 'FAILED ✗' }}"
           - "{{ ping_result.stdout_lines | select('search', 'packets transmitted') | first }}"
 
+

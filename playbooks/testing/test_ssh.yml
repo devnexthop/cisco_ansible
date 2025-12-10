@@ -20,3 +20,4 @@
         msg: "{{ ssh_result.stdout[0].split('\n')[:10] }}"
       when: not ssh_result.failed
 
+

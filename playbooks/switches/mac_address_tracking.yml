@@ -99,3 +99,4 @@
         - mac_table.stdout is defined
         - mac_table.stdout | length > 0
 
+
