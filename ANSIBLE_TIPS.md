@@ -286,6 +286,112 @@ ansible switches -m cisco.ios.ios_command -a "commands='show version'" --one-lin
 ansible switches -m cisco.ios.ios_command -a "commands='show version'" > output.txt
 ```
 
+### Display Only stdout_lines (Readable Format)
+
+By default, Ansible shows both `stdout` (single line) and `stdout_lines` (readable). To show only `stdout_lines`:
+
+#### Method 1: Use debug module with stdout_lines (RECOMMENDED)
+```bash
+# Run command and display only stdout_lines
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" | \
+  ansible switches -m ansible.builtin.debug -a "var=item.stdout_lines[0]" -e "@-" 2>/dev/null
+
+# Better: Use a simple playbook wrapper
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" -e "display_lines=true" | \
+  grep -A 1000 "stdout_lines" | grep -v "stdout\|changed\|failed"
+```
+
+#### Method 2: Use debug module to extract stdout_lines
+```bash
+# First, run the command and save to a variable, then display stdout_lines
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" --one-line | \
+  python3 -c "import sys, json; [print('\n'.join(json.loads(line.split('=>')[1].strip())['stdout_lines'][0])) for line in sys.stdin if 'stdout_lines' in line]"
+```
+
+#### Method 3: Use jq to parse JSON output (if jq is installed)
+```bash
+# Get JSON output and extract only stdout_lines
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" --one-line | \
+  jq -r '.stdout_lines[0][]' 2>/dev/null
+```
+
+#### Method 4: Create a simple playbook for readable output
+Create `playbooks/testing/show_command.yml`:
+```yaml
+---
+- name: Show Command Output (Readable)
+  hosts: "{{ target_hosts | default('switches') }}"
+  gather_facts: no
+  vars:
+    command: "{{ target_command | default('show version') }}"
+  
+  tasks:
+    - name: Run command
+      cisco.ios.ios_command:
+        commands: "{{ command }}"
+      register: cmd_result
+      
+    - name: Display output (readable format)
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      loop: "{{ cmd_result.stdout_lines[0] }}"
+      when: cmd_result.stdout_lines is defined
+```
+
+Then use it:
+```bash
+# Show version in readable format
+ansible-playbook playbooks/testing/show_command.yml -e "target_command='show version'"
+
+# Show any command
+ansible-playbook playbooks/testing/show_command.yml -e "target_command='show inventory'"
+```
+
+#### Method 5: Use ansible.builtin.debug with var (for playbooks)
+In your playbooks, use:
+```yaml
+- name: Show readable output
+  ansible.builtin.debug:
+    var: cmd_result.stdout_lines[0]
+  # This displays each line separately
+```
+
+#### Method 6: Simple shell script wrapper
+Create a script `show-readable.sh`:
+```bash
+#!/bin/bash
+ansible "$1" -m cisco.ios.ios_command -a "commands='$2'" --one-line | \
+  python3 -c "
+import sys, json
+for line in sys.stdin:
+    if '=>' in line:
+        try:
+            data = json.loads(line.split('=>', 1)[1].strip())
+            if 'stdout_lines' in data and data['stdout_lines']:
+                for output_line in data['stdout_lines'][0]:
+                    print(output_line)
+        except:
+            pass
+"
+```
+
+Usage:
+```bash
+chmod +x show-readable.sh
+./show-readable.sh switches "show version"
+```
+
+### Quick Tip: Filter Output with grep
+```bash
+# Show only stdout_lines section (removes stdout single-line)
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" | \
+  grep -A 1000 "stdout_lines" | grep -v "stdout\|changed\|failed\|rc"
+
+# Or use sed to clean up
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" | \
+  sed -n '/stdout_lines/,/^}/p' | grep -v "stdout\|changed\|failed"
+```
+
 ### Real-World Examples
 ```bash
 # Quick connectivity test

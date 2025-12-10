@@ -1,0 +1,33 @@
+---
+- name: Show Command Output (Readable Format)
+  hosts: "{{ target_hosts | default('switches') }}"
+  gather_facts: no
+  vars:
+    command: "{{ target_command | default('show version') }}"
+  
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+      vars:
+        ansible_command_timeout: 10
+
+    - name: Run command
+      cisco.ios.ios_command:
+        commands: "{{ command }}"
+      register: cmd_result
+      vars:
+        ansible_command_timeout: 60
+      
+    - name: Display output (readable format - stdout_lines only)
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      loop: "{{ cmd_result.stdout_lines[0] | default([]) }}"
+      when: 
+        - cmd_result.stdout_lines is defined
+        - cmd_result.stdout_lines | length > 0
+        - cmd_result.stdout_lines[0] | length > 0
+
