@@ -88,6 +88,8 @@
 
 #### `cisco.ios.ios_interfaces`
 **Purpose**: Configure physical interface properties
+
+**Basic interface configuration:**
 ```yaml
 - name: Configure interface
   cisco.ios.ios_interfaces:
@@ -98,6 +100,66 @@
         speed: 1000
         duplex: full
 ```
+
+**Shut down (disable) an interface:**
+```yaml
+- name: Shut down interface
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: false  # false = shutdown, true = no shutdown
+```
+
+**Enable (no shut) an interface:**
+```yaml
+- name: Enable interface (no shutdown)
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: true  # true = no shutdown, false = shutdown
+```
+
+**Shut down multiple interfaces:**
+```yaml
+- name: Shut down multiple interfaces
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: false
+      - name: GigabitEthernet0/2
+        enabled: false
+      - name: GigabitEthernet0/3
+        enabled: false
+```
+
+**Enable multiple interfaces:**
+```yaml
+- name: Enable multiple interfaces
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: true
+      - name: GigabitEthernet0/2
+        enabled: true
+      - name: GigabitEthernet0/3
+        enabled: true
+```
+
+**Complete example: Configure interface with description and enable it:**
+```yaml
+- name: Configure and enable interface
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        description: "Uplink to Core Switch"
+        enabled: true    # no shutdown
+        speed: 1000
+        duplex: full
+```
+
+**Note:** 
+- `enabled: true` = `no shutdown` (interface is up)
+- `enabled: false` = `shutdown` (interface is down)
 
 #### `cisco.ios.ios_l2_interfaces`
 **Purpose**: Configure Layer 2 (switching) on interfaces
@@ -418,6 +480,52 @@
   cisco.ios.ios_hostname:
     hostname: "SWITCH-01"
 ```
+
+### Example 4: Shut Down / Enable Interface
+
+#### Using `ios_config` (Not Recommended)
+```yaml
+- name: Shut down interface
+  cisco.ios.ios_config:
+    lines:
+      - "shutdown"
+    parents: "interface GigabitEthernet0/1"
+
+- name: Enable interface (no shutdown)
+  cisco.ios.ios_config:
+    lines:
+      - "no shutdown"
+    parents: "interface GigabitEthernet0/1"
+```
+**Issues**: Not idempotent, requires separate tasks for shut/no shut
+
+#### Using Specialized Module (Recommended)
+```yaml
+- name: Shut down interface
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: false  # false = shutdown
+
+- name: Enable interface (no shutdown)
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        enabled: true   # true = no shutdown
+```
+
+**Or combine with other interface settings:**
+```yaml
+- name: Configure interface and enable it
+  cisco.ios.ios_interfaces:
+    config:
+      - name: GigabitEthernet0/1
+        description: "Uplink to Core"
+        enabled: true    # no shutdown
+        speed: 1000
+        duplex: full
+```
+**Benefits**: Idempotent, can combine multiple settings, state-aware
 
 ## Best Practices
 
