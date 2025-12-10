@@ -46,59 +46,6 @@
         - version_result.stdout | length > 0
         - (software_version | default('')) == "" or software_version == "Unknown"
 
-    - name: Find Switch 1 section in inventory
-      ansible.builtin.set_fact:
-        switch1_section: "{{ inventory_result.stdout[0].split('NAME: \"Switch 1\"')[1] if 'NAME: \"Switch 1\"' in inventory_result.stdout[0] else '' }}"
-      when: 
-        - inventory_result.stdout is defined
-        - inventory_result.stdout | length > 0
-
-    - name: Extract model number (PID) from Switch 1 section
-      ansible.builtin.set_fact:
-        model_pid: "{{ (switch1_section | regex_findall('PID: (C\\d+-\\S+)') | first) | default('') }}"
-      when: 
-        - switch1_section is defined
-        - switch1_section != ""
-
-    - name: Extract model number (PID) from show inventory - Get first C-series PID (fallback)
-      ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('PID: (C\\d+-\\S+)') | first) | default(model_pid | default('')) }}"
-      when: 
-        - inventory_result.stdout is defined
-        - inventory_result.stdout | length > 0
-        - (model_pid | default('')) == ""
-
-    - name: Extract model number (PID) from show version - Method 3 (fallback)
-      ansible.builtin.set_fact:
-        model_pid: "{{ (version_result.stdout[0] | regex_findall('Model Number\\s+:\\s+(\\S+)') | first) | default(model_pid | default('Unknown')) }}"
-      when: 
-        - version_result.stdout is defined
-        - version_result.stdout | length > 0
-        - (model_pid | default('')) == "" or model_pid == "Unknown"
-
-    - name: Extract serial number from Switch 1 section
-      ansible.builtin.set_fact:
-        serial_number: "{{ (switch1_section | regex_findall('SN: ([A-Z0-9]+)') | first) | default('') }}"
-      when: 
-        - switch1_section is defined
-        - switch1_section != ""
-
-    - name: Extract serial number from show inventory - Get first SN after C-series PID (fallback)
-      ansible.builtin.set_fact:
-        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('PID: C\\d+-\\S+.*?SN: ([A-Z0-9]+)') | first) | default(serial_number | default('')) }}"
-      when: 
-        - inventory_result.stdout is defined
-        - inventory_result.stdout | length > 0
-        - (serial_number | default('')) == ""
-
-    - name: Extract serial number from show version (fallback)
-      ansible.builtin.set_fact:
-        serial_number: "{{ (version_result.stdout[0] | regex_findall('System Serial Number\\s+:\\s+(\\S+)') | first) | default(serial_number | default('Unknown')) }}"
-      when: 
-        - version_result.stdout is defined
-        - version_result.stdout | length > 0
-        - (serial_number | default('')) == "" or serial_number == "Unknown"
-
     - name: Extract hostname from show version
       ansible.builtin.set_fact:
         device_hostname: "{{ (version_result.stdout[0] | regex_findall('^([A-Z0-9_]+)\\s+uptime') | first) | default(inventory_hostname) }}"
@@ -121,17 +68,77 @@
         - version_result.stdout | length > 0
       failed_when: false
 
-    - name: Display switch inventory information
+    - name: Extract switch table from show version
+      ansible.builtin.set_fact:
+        switch_table_lines: "{{ version_result.stdout[0].split('Switch Ports Model')[1].split('Switch 0')[0] if 'Switch Ports Model' in version_result.stdout[0] else '' }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+
+    - name: Parse all switches from switch table
+      ansible.builtin.set_fact:
+        switches_list: "{{ switches_list | default([]) + [{'switch_num': item | regex_search('^[\\*\\s]+(\\d+)') | first | default(''), 'model': item | regex_search('(C\\d+-\\S+)') | first | default(''), 'sw_version': item | regex_search('(\\d+\\.\\d+\\.\\d+)') | first | default('')}] }}"
+      loop: "{{ switch_table_lines.split('\\n') | select('match', '^[\\*\\s]+\\d+') | list }}"
+      when: 
+        - switch_table_lines is defined
+        - switch_table_lines != ""
+
+    - name: Extract all Switch entries from inventory
+      ansible.builtin.set_fact:
+        inventory_switches: "{{ inventory_switches | default([]) + [{'switch_num': item | regex_search('Switch (\\d+)') | first | default('1'), 'pid': item | regex_search('PID: (C\\d+-\\S+)') | first | default(''), 'sn': item | regex_search('SN: ([A-Z0-9]+)') | first | default('')}] }}"
+      loop: "{{ inventory_result.stdout[0].split('NAME: \"Switch ') | select('match', '^\\d+') | list }}"
+      when: 
+        - inventory_result.stdout is defined
+        - inventory_result.stdout | length > 0
+        - "'Switch ' in inventory_result.stdout[0]"
+
+    - name: Combine switch information
+      ansible.builtin.set_fact:
+        all_switches: "{{ all_switches | default([]) + [{'switch_num': item.switch_num, 'pid': item.pid, 'sn': item.sn, 'sw_version': (switches_list | selectattr('switch_num', 'equalto', item.switch_num) | map(attribute='sw_version') | first) | default(software_version | default('Unknown'))}] }}"
+      loop: "{{ inventory_switches | default([]) }}"
+      when: 
+        - inventory_switches is defined
+        - inventory_switches | length > 0
+
+    - name: Display switch inventory information - Header
       ansible.builtin.debug:
         msg: |
           ========================================
           SWITCH INVENTORY INFORMATION
           ========================================
           Switch Name: {{ device_hostname | default(inventory_hostname) }}
-          PID: {{ model_pid | default('Unknown') }}
-          SN: {{ serial_number | default('Unknown') }}
+          IP Address: {{ ansible_host }}
           Software Version: {{ software_version | default('Unknown') }}
           IOS Version: {{ ios_version | default(software_version | default('Unknown')) }}
           ROM Version: {{ rom_version | default('Unknown') }}
-          IP Address: {{ ansible_host }}
           ========================================
+          SWITCHES IN STACK:
+          ========================================
+
+    - name: Display each switch in stack
+      ansible.builtin.debug:
+        msg: |
+          Switch {{ item.switch_num }}:
+            PID: {{ item.pid | default('Unknown') }}
+            SN: {{ item.sn | default('Unknown') }}
+            SW Version: {{ item.sw_version | default('Unknown') }}
+      loop: "{{ all_switches | default([]) }}"
+      when: 
+        - all_switches is defined
+        - all_switches | length > 0
+
+    - name: Display single switch if no stack detected
+      ansible.builtin.debug:
+        msg: |
+          Switch 1:
+            PID: {{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?PID: (C\\d+-\\S+)') | first) | default((inventory_result.stdout[0] | regex_findall('PID: (C\\d+-\\S+)') | first) | default('Unknown')) }}
+            SN: {{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?SN: ([A-Z0-9]+)') | first) | default((inventory_result.stdout[0] | regex_findall('PID: C\\d+-\\S+.*?SN: ([A-Z0-9]+)') | first) | default((version_result.stdout[0] | regex_findall('System Serial Number\\s+:\\s+(\\S+)') | first) | default('Unknown'))) }}
+            SW Version: {{ software_version | default('Unknown') }}
+      when: 
+        - all_switches is not defined or all_switches | length == 0
+        - inventory_result.stdout is defined
+        - inventory_result.stdout | length > 0
+
+    - name: Display footer
+      ansible.builtin.debug:
+        msg: "========================================"
