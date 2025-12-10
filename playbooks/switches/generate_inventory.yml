@@ -68,37 +68,52 @@
         - version_result.stdout | length > 0
       failed_when: false
 
-    - name: Extract switch table from show version
+    - name: Extract switch table section from show version
       ansible.builtin.set_fact:
-        switch_table_lines: "{{ version_result.stdout[0].split('Switch Ports Model')[1].split('Switch 0')[0] if 'Switch Ports Model' in version_result.stdout[0] else '' }}"
+        switch_table_section: "{{ version_result.stdout[0].split('Switch Ports Model')[1].split('Switch 0')[0] if 'Switch Ports Model' in version_result.stdout[0] else '' }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
-    - name: Parse all switches from switch table
+    - name: Parse switch table lines
       ansible.builtin.set_fact:
-        switches_list: "{{ switches_list | default([]) + [{'switch_num': item | regex_search('^[\\*\\s]+(\\d+)') | first | default(''), 'model': item | regex_search('(C\\d+-\\S+)') | first | default(''), 'sw_version': item | regex_search('(\\d+\\.\\d+\\.\\d+)') | first | default('')}] }}"
-      loop: "{{ switch_table_lines.split('\\n') | select('match', '^[\\*\\s]+\\d+') | list }}"
+        switch_table_lines: "{{ switch_table_section.split('\\n') | select('match', '^[\\*\\s]+\\d+\\s+\\d+') | list }}"
+      when: 
+        - switch_table_section is defined
+        - switch_table_section != ""
+
+    - name: Extract switches from table
+      ansible.builtin.set_fact:
+        switches_from_table: "{{ switches_from_table | default([]) + [{'switch_num': (item | regex_findall('^[\\*\\s]+(\\d+)') | first | default('')), 'model': (item | regex_findall('(C\\d+-\\S+)') | first | default('')), 'sw_version': (item | regex_findall('(\\d+\\.\\d+\\.\\d+)') | first | default(''))}] }}"
+      loop: "{{ switch_table_lines | default([]) }}"
       when: 
         - switch_table_lines is defined
-        - switch_table_lines != ""
+        - switch_table_lines | length > 0
 
-    - name: Extract all Switch entries from inventory
+    - name: Split inventory by Switch entries
       ansible.builtin.set_fact:
-        inventory_switches: "{{ inventory_switches | default([]) + [{'switch_num': item | regex_search('Switch (\\d+)') | first | default('1'), 'pid': item | regex_search('PID: (C\\d+-\\S+)') | first | default(''), 'sn': item | regex_search('SN: ([A-Z0-9]+)') | first | default('')}] }}"
-      loop: "{{ inventory_result.stdout[0].split('NAME: \"Switch ') | select('match', '^\\d+') | list }}"
+        inventory_switch_sections: "{{ inventory_result.stdout[0].split('NAME: \"Switch ') | select('match', '^\\d+') | list }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
-        - "'Switch ' in inventory_result.stdout[0]"
 
-    - name: Combine switch information
+    - name: Extract all switches from inventory
       ansible.builtin.set_fact:
-        all_switches: "{{ all_switches | default([]) + [{'switch_num': item.switch_num, 'pid': item.pid, 'sn': item.sn, 'sw_version': (switches_list | selectattr('switch_num', 'equalto', item.switch_num) | map(attribute='sw_version') | first) | default(software_version | default('Unknown'))}] }}"
-      loop: "{{ inventory_switches | default([]) }}"
+        switches_from_inventory: "{{ switches_from_inventory | default([]) + [{'switch_num': (item | regex_findall('^(\\d+)') | first | default('1')), 'pid': (item | regex_findall('PID: (C\\d+-\\S+)') | first | default('')), 'sn': (item | regex_findall('SN: ([A-Z0-9]+)') | first | default(''))}] }}"
+      loop: "{{ inventory_switch_sections | default([]) }}"
       when: 
-        - inventory_switches is defined
-        - inventory_switches | length > 0
+        - inventory_switch_sections is defined
+        - inventory_switch_sections | length > 0
+
+    - name: Combine switch information from both sources
+      ansible.builtin.set_fact:
+        all_switches: "{{ all_switches | default([]) + [{'switch_num': inv_switch.switch_num, 'pid': inv_switch.pid, 'sn': inv_switch.sn, 'sw_version': (switches_from_table | selectattr('switch_num', 'equalto', inv_switch.switch_num) | map(attribute='sw_version') | first) | default(software_version | default('Unknown'))}] }}"
+      loop: "{{ switches_from_inventory | default([]) }}"
+      loop_control:
+        loop_var: inv_switch
+      when: 
+        - switches_from_inventory is defined
+        - switches_from_inventory | length > 0
 
     - name: Display switch inventory information - Header
       ansible.builtin.debug:
