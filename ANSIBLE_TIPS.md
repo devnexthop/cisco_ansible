@@ -229,9 +229,33 @@ ansible switches -m cisco.ios.ios_config -a "commands='show running-config'"
 # Apply configuration lines
 ansible switches -m cisco.ios.ios_config -a "lines='hostname NEW_HOSTNAME'"
 
+# Shut down interface (EASIEST for ad-hoc commands)
+ansible switches -m cisco.ios.ios_config -a "lines='shutdown' parents='interface GigabitEthernet0/1'"
+
+# Enable interface (no shutdown)
+ansible switches -m cisco.ios.ios_config -a "lines='no shutdown' parents='interface GigabitEthernet0/1'"
+
 # Backup running config
 ansible switches -m cisco.ios.ios_config -a "backup=yes"
 ```
+
+### Cisco IOS Interfaces Module (`cisco.ios.ios_interfaces`)
+**Note:** For ad-hoc commands, `ios_config` is easier. `ios_interfaces` requires JSON format:
+
+```bash
+# Shut down interface using ios_interfaces (requires JSON)
+ansible switches -m cisco.ios.ios_interfaces -a '{"config":[{"name":"GigabitEthernet0/1","enabled":false}]}'
+
+# Enable interface using ios_interfaces (requires JSON)
+ansible switches -m cisco.ios.ios_interfaces -a '{"config":[{"name":"GigabitEthernet0/1","enabled":true}]}'
+
+# Configure interface with description and enable (JSON format)
+ansible switches -m cisco.ios.ios_interfaces -a '{"config":[{"name":"GigabitEthernet0/1","description":"Uplink","enabled":true}]}'
+```
+
+**Recommendation for ad-hoc commands:**
+- **Use `ios_config`** for simple shut/no shut operations (easier syntax)
+- **Use `ios_interfaces`** in playbooks (better for structured configs)
 
 ### Cisco IOS Facts Module (`cisco.ios.ios_facts`)
 ```bash
@@ -399,6 +423,12 @@ ansible switches -m ping
 
 # Check all switch versions
 ansible switches -m cisco.ios.ios_command -a "commands='show version'"
+
+# Shut down interface (EASIEST method for ad-hoc)
+ansible switches -m cisco.ios.ios_config -a "lines='shutdown' parents='interface GigabitEthernet0/1'"
+
+# Enable interface (no shutdown)
+ansible switches -m cisco.ios.ios_config -a "lines='no shutdown' parents='interface GigabitEthernet0/1'"
 
 # Backup configs from all switches
 ansible switches -m cisco.ios.ios_config -a "backup=yes backup_options={'filename': 'backup.cfg'}"
