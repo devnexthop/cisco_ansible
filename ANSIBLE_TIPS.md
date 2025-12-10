@@ -23,7 +23,7 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "swit
 ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!switch-01:!switch-02"
 
 # Run on all switches except devices matching a pattern (QUOTE THE LIMIT!)
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!*WAREHOUSE*"
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!*maintenance*"
 
 # IMPORTANT: Always quote exclusion patterns to prevent bash history expansion errors!
 # Without quotes: bash interprets ! as history expansion → "event not found" error
@@ -46,11 +46,11 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "all:
 
 ### Wildcards
 ```bash
-# All switches starting with "SSA"
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit SSA*
+# All switches starting with "site1"
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1*
 
-# All switches in site 100
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit *100*
+# All switches matching a pattern
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit *core*
 ```
 
 ### Multiple Patterns
@@ -159,32 +159,32 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "swit
 When using `!` in `--limit` patterns, bash interprets it as history expansion, causing errors:
 ```bash
 # ❌ WRONG - This will fail with "event not found" error
-ansible-playbook switches/verify_spanning_tree.yml --limit switches:!SSAINT234_PNL_RM_1
-# Error: -bash: !SSAINT234_PNL_RM_1: event not found
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:!switch-01
+# Error: -bash: !switch-01: event not found
 ```
 
 ### The Solution
 **Always quote exclusion patterns** to prevent bash from interpreting `!`:
 ```bash
 # ✅ CORRECT - Quote the entire limit pattern
-ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!SSAINT234_PNL_RM_1"
+ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!switch-01"
 
 # ✅ Also works with single quotes
-ansible-playbook switches/verify_spanning_tree.yml --limit 'switches:!SSAINT234_PNL_RM_1'
+ansible-playbook switches/verify_spanning_tree.yml --limit 'switches:!switch-01'
 ```
 
 ### Alternative Solutions
 ```bash
 # Option 1: Disable history expansion temporarily
 set +H
-ansible-playbook switches/verify_spanning_tree.yml --limit switches:!SSAINT234_PNL_RM_1
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:!switch-01
 set -H
 
 # Option 2: Escape the exclamation mark
-ansible-playbook switches/verify_spanning_tree.yml --limit switches:\!SSAINT234_PNL_RM_1
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:\!switch-01
 
 # Option 3: Use quotes (RECOMMENDED - Easiest!)
-ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!SSAINT234_PNL_RM_1"
+ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!switch-01"
 ```
 
 ## Using Ansible Modules Directly (Ad-Hoc Commands)
@@ -413,7 +413,7 @@ ansible switches -m cisco.ios.ios_command -a "commands='terminal length 0','show
 ansible switch-01 -m cisco.ios.ios_command -a "commands='show ip interface brief'"
 
 # Run on all switches except one (QUOTE IT!)
-ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit "switches:!SSA100240_WAREHOUSE"
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit "switches:!switch-01"
 ```
 
 ### Module Documentation
