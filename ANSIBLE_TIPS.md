@@ -16,26 +16,30 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switc
 
 ### Exclude Specific Hosts
 ```bash
-# Run on all switches EXCEPT one device
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!switch-01
+# Run on all switches EXCEPT one device (QUOTE THE LIMIT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!switch-01"
 
-# Exclude multiple devices
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!switch-01:!switch-02
+# Exclude multiple devices (QUOTE THE LIMIT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!switch-01:!switch-02"
 
-# Run on all switches except devices matching a pattern
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!*WAREHOUSE*
+# Run on all switches except devices matching a pattern (QUOTE THE LIMIT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!*WAREHOUSE*"
+
+# IMPORTANT: Always quote exclusion patterns to prevent bash history expansion errors!
+# Without quotes: bash interprets ! as history expansion → "event not found" error
+# With quotes: Ansible receives the pattern correctly
 ```
 
 ### Complex Patterns
 ```bash
-# Run on switches in site1 but exclude one device
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1_switches:!switch-01
+# Run on switches in site1 but exclude one device (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "site1_switches:!switch-01"
 
-# Run on multiple groups but exclude specific hosts
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches,routers:!problematic-device
+# Run on multiple groups but exclude specific hosts (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches,routers:!problematic-device"
 
-# Run on all except maintenance devices
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit all:!maintenance
+# Run on all except maintenance devices (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "all:!maintenance"
 ```
 
 ## Pattern Examples
@@ -54,8 +58,8 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit *100*
 # Switches in site1 OR site2
 ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1_switches:site2_switches
 
-# All switches except those in maintenance group
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!maintenance
+# All switches except those in maintenance group (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!maintenance"
 ```
 
 ## Inventory Group Examples
@@ -82,11 +86,11 @@ You can use:
 # All switches in site1
 ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1_switches
 
-# All switches in site1 except switch-02
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1_switches:!switch-02
+# All switches in site1 except switch-02 (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "site1_switches:!switch-02"
 
-# All switches except site1
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!site1_switches
+# All switches except site1 (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!site1_switches"
 ```
 
 ## Useful Flags
@@ -124,8 +128,8 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml -vvv # Most v
 
 ### Maintenance Window
 ```bash
-# Run on all devices except the one being maintained
-ansible-playbook playbooks/switches/backup_configs.yml --limit switches:!switch-under-maintenance
+# Run on all devices except the one being maintained (QUOTE IT!)
+ansible-playbook playbooks/switches/backup_configs.yml --limit "switches:!switch-under-maintenance"
 ```
 
 ### Testing on One Device First
@@ -139,14 +143,48 @@ ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switc
 
 ### Site-Specific Operations
 ```bash
-# Run on all switches in site1 except one
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit site1_switches:!switch-01
+# Run on all switches in site1 except one (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "site1_switches:!switch-01"
 ```
 
 ### Exclude Problem Devices
 ```bash
-# Run on all switches except known problematic ones
-ansible-playbook playbooks/switches/network_topology_discovery.yml --limit switches:!problem-device-1:!problem-device-2
+# Run on all switches except known problematic ones (QUOTE IT!)
+ansible-playbook playbooks/switches/network_topology_discovery.yml --limit "switches:!problem-device-1:!problem-device-2"
+```
+
+## ⚠️ IMPORTANT: Bash History Expansion Issue
+
+### The Problem
+When using `!` in `--limit` patterns, bash interprets it as history expansion, causing errors:
+```bash
+# ❌ WRONG - This will fail with "event not found" error
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:!SSAINT234_PNL_RM_1
+# Error: -bash: !SSAINT234_PNL_RM_1: event not found
+```
+
+### The Solution
+**Always quote exclusion patterns** to prevent bash from interpreting `!`:
+```bash
+# ✅ CORRECT - Quote the entire limit pattern
+ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!SSAINT234_PNL_RM_1"
+
+# ✅ Also works with single quotes
+ansible-playbook switches/verify_spanning_tree.yml --limit 'switches:!SSAINT234_PNL_RM_1'
+```
+
+### Alternative Solutions
+```bash
+# Option 1: Disable history expansion temporarily
+set +H
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:!SSAINT234_PNL_RM_1
+set -H
+
+# Option 2: Escape the exclamation mark
+ansible-playbook switches/verify_spanning_tree.yml --limit switches:\!SSAINT234_PNL_RM_1
+
+# Option 3: Use quotes (RECOMMENDED - Easiest!)
+ansible-playbook switches/verify_spanning_tree.yml --limit "switches:!SSAINT234_PNL_RM_1"
 ```
 
 ## Using Ansible Modules Directly (Ad-Hoc Commands)
@@ -238,8 +276,8 @@ ansible switches -m cisco.ios.ios_command -a "commands='show version'" -vvv
 # Limit to specific hosts
 ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit switch-01
 
-# Exclude hosts
-ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit switches:!switch-01
+# Exclude hosts (QUOTE IT!)
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit "switches:!switch-01"
 
 # One-line output (for scripts)
 ansible switches -m cisco.ios.ios_command -a "commands='show version'" --one-line
@@ -268,8 +306,8 @@ ansible switches -m cisco.ios.ios_command -a "commands='terminal length 0','show
 # Get interface status from specific switch
 ansible switch-01 -m cisco.ios.ios_command -a "commands='show ip interface brief'"
 
-# Run on all switches except one
-ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit switches:!SSA100240_WAREHOUSE
+# Run on all switches except one (QUOTE IT!)
+ansible switches -m cisco.ios.ios_command -a "commands='show version'" --limit "switches:!SSA100240_WAREHOUSE"
 ```
 
 ### Module Documentation
