@@ -31,23 +31,31 @@
       vars:
         ansible_command_timeout: 60
 
-    - name: Extract software version from show version
+    - name: Extract software version from show version (IOS XE format)
       ansible.builtin.set_fact:
-        software_version: "{{ (version_result.stdout[0] | regex_findall('Version (\\S+)') | first) | default('Unknown') }}"
+        software_version: "{{ (version_result.stdout[0] | regex_findall('Cisco IOS XE Software, Version (\\S+)') | first) | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
-    - name: Extract model number (PID) from show inventory - Method 1 (PID line)
+    - name: Extract software version from show version (IOS format fallback)
       ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('PID:\\s+(\\S+)') | first) | default('') }}"
+        software_version: "{{ (version_result.stdout[0] | regex_findall('Cisco IOS Software.*Version (\\S+)') | first) | default(software_version | default('Unknown')) }}"
+      when: 
+        - version_result.stdout is defined
+        - version_result.stdout | length > 0
+        - (software_version | default('')) == "" or software_version == "Unknown"
+
+    - name: Extract model number (PID) from show inventory - Get Switch 1 PID
+      ansible.builtin.set_fact:
+        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?\\nPID: (\\S+)') | first) | default('') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
 
-    - name: Extract model number (PID) from show inventory - Method 2 (NAME line fallback)
+    - name: Extract model number (PID) from show inventory - Get first PID from stack (fallback)
       ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('NAME:\\s*\"([^\"]+)\"') | first) | default(model_pid | default('')) }}"
+        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('PID: (C\\d+-\\S+)') | first) | default(model_pid | default('')) }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
@@ -61,12 +69,20 @@
         - version_result.stdout | length > 0
         - (model_pid | default('')) == "" or model_pid == "Unknown"
 
-    - name: Extract serial number from show inventory
+    - name: Extract serial number from show inventory - Get Switch 1 SN
       ansible.builtin.set_fact:
-        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('SN:\\s+(\\S+)') | first) | default('Unknown') }}"
+        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?\\nPID:.*?SN: (\\S+)') | first) | default('') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
+
+    - name: Extract serial number from show inventory - Get first SN from stack (fallback)
+      ansible.builtin.set_fact:
+        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('PID: C\\d+-\\S+.*?SN: ([A-Z0-9]+)') | first) | default(serial_number | default('')) }}"
+      when: 
+        - inventory_result.stdout is defined
+        - inventory_result.stdout | length > 0
+        - (serial_number | default('')) == ""
 
     - name: Extract serial number from show version (fallback)
       ansible.builtin.set_fact:
@@ -78,21 +94,21 @@
 
     - name: Extract hostname from show version
       ansible.builtin.set_fact:
-        device_hostname: "{{ (version_result.stdout[0] | regex_findall('^([^\\s#]+)') | first) | default(inventory_hostname) }}"
+        device_hostname: "{{ (version_result.stdout[0] | regex_findall('^([A-Z0-9_]+)\\s+uptime') | first) | default(inventory_hostname) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
     - name: Extract IOS version details
       ansible.builtin.set_fact:
-        ios_version: "{{ (version_result.stdout[0] | regex_findall('IOS.*Version (\\S+)') | first) | default(software_version | default('Unknown')) }}"
+        ios_version: "{{ (version_result.stdout[0] | regex_findall('Cisco IOS Software.*Version (\\S+)') | first) | default(software_version | default('Unknown')) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
     - name: Extract ROM version
       ansible.builtin.set_fact:
-        rom_version: "{{ (version_result.stdout[0] | regex_findall('ROM:.*Version (\\S+)') | first) | default('Unknown') }}"
+        rom_version: "{{ (version_result.stdout[0] | regex_findall('BOOTLDR:.*Version (\\S+)') | first) | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
@@ -104,11 +120,11 @@
           ========================================
           SWITCH INVENTORY INFORMATION
           ========================================
-          Hostname: {{ device_hostname | default(inventory_hostname) }}
-          IP Address: {{ ansible_host }}
-          Model (PID): {{ model_pid | default('Unknown') }}
+          Switch Name: {{ device_hostname | default(inventory_hostname) }}
+          PID: {{ model_pid | default('Unknown') }}
+          SN: {{ serial_number | default('Unknown') }}
           Software Version: {{ software_version | default('Unknown') }}
           IOS Version: {{ ios_version | default(software_version | default('Unknown')) }}
           ROM Version: {{ rom_version | default('Unknown') }}
-          Serial Number: {{ serial_number | default('Unknown') }}
+          IP Address: {{ ansible_host }}
           ========================================
