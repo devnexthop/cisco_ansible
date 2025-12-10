@@ -48,12 +48,12 @@
 
     - name: Extract model number (PID) from show inventory - Get Switch 1 PID
       ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?\\nPID: (\\S+)') | first) | default('') }}"
+        model_pid: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?PID: (C\\d+-\\S+)') | first) | default('') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
 
-    - name: Extract model number (PID) from show inventory - Get first PID from stack (fallback)
+    - name: Extract model number (PID) from show inventory - Get first C-series PID (fallback)
       ansible.builtin.set_fact:
         model_pid: "{{ (inventory_result.stdout[0] | regex_findall('PID: (C\\d+-\\S+)') | first) | default(model_pid | default('')) }}"
       when: 
@@ -71,12 +71,12 @@
 
     - name: Extract serial number from show inventory - Get Switch 1 SN
       ansible.builtin.set_fact:
-        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?\\nPID:.*?SN: (\\S+)') | first) | default('') }}"
+        serial_number: "{{ (inventory_result.stdout[0] | regex_findall('NAME: \"Switch 1\".*?SN: ([A-Z0-9]+)') | first) | default('') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
 
-    - name: Extract serial number from show inventory - Get first SN from stack (fallback)
+    - name: Extract serial number from show inventory - Get first SN after C-series PID (fallback)
       ansible.builtin.set_fact:
         serial_number: "{{ (inventory_result.stdout[0] | regex_findall('PID: C\\d+-\\S+.*?SN: ([A-Z0-9]+)') | first) | default(serial_number | default('')) }}"
       when: 
