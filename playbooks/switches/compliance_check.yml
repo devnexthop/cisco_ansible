@@ -1,0 +1,81 @@
+---
+- name: Compliance Check
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get running configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: running_config
+      failed_when: false
+      vars:
+        ansible_command_timeout: 180
+
+    - name: Check for Telnet (should be disabled)
+      ansible.builtin.set_fact:
+        telnet_enabled: "{{ 'line vty' in running_config.stdout[0] and 'transport input telnet' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Check for SSH (should be enabled)
+      ansible.builtin.set_fact:
+        ssh_enabled: "{{ 'transport input ssh' in running_config.stdout[0] or 'transport input all' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Check for NTP configuration
+      ansible.builtin.set_fact:
+        ntp_configured: "{{ 'ntp server' in running_config.stdout[0] or 'ntp master' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Check for logging configuration
+      ansible.builtin.set_fact:
+        logging_configured: "{{ 'logging' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Check for SNMP community strings
+      ansible.builtin.set_fact:
+        snmp_community: "{{ 'snmp-server community' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Check for default username/password
+      ansible.builtin.set_fact:
+        default_creds: "{{ 'username admin password' in running_config.stdout[0] or 'username cisco password' in running_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - running_config.stdout | length > 0
+
+    - name: Display compliance check results
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          COMPLIANCE CHECK RESULTS
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          ========================================
+          Telnet Disabled: {{ '✓ PASS' if not telnet_enabled else '✗ FAIL - Telnet is enabled' }}
+          SSH Enabled: {{ '✓ PASS' if ssh_enabled else '✗ FAIL - SSH not properly configured' }}
+          NTP Configured: {{ '✓ PASS' if ntp_configured else '✗ WARNING - NTP not configured' }}
+          Logging Configured: {{ '✓ PASS' if logging_configured else '✗ WARNING - Logging not configured' }}
+          SNMP Community: {{ '⚠ WARNING - SNMP community found' if snmp_community else '✓ PASS - No SNMP community' }}
+          Default Credentials: {{ '✗ FAIL - Default credentials detected' if default_creds else '✓ PASS' }}
+          ========================================
+

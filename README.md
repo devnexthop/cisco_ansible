@@ -19,8 +19,14 @@ cisco_ansible/
 │   ├── routers/         # Router-specific playbooks
 │   ├── switches/        # Switch-specific playbooks
 │   │   ├── backup_configs.yml
+│   │   ├── check_config_drift.yml
+│   │   ├── compliance_check.yml
+│   │   ├── device_health_monitor.yml
 │   │   ├── find_mac_address.yml
-│   │   ├── generate_inventory_csv.yml
+│   │   ├── generate_inventory.yml
+│   │   ├── mac_address_tracking.yml
+│   │   ├── network_topology_discovery.yml
+│   │   ├── port_utilization_report.yml
 │   │   ├── verify_spanning_tree.yml
 │   │   └── verify_switch_versions.yml
 │   └── testing/         # Testing and validation playbooks
@@ -107,9 +113,28 @@ ansible-playbook playbooks/switches/verify_spanning_tree.yml
 # Verify switch versions
 ansible-playbook playbooks/switches/verify_switch_versions.yml
 
-# Generate CSV inventory report (PID and Software Version)
-ansible-playbook playbooks/switches/generate_inventory_csv.yml
-# Output: reports/switch_inventory_<timestamp>.csv
+# Generate inventory report (PID and Software Version)
+ansible-playbook playbooks/switches/generate_inventory.yml
+
+# Check configuration drift (running vs startup)
+ansible-playbook playbooks/switches/check_config_drift.yml
+
+# Port utilization report
+ansible-playbook playbooks/switches/port_utilization_report.yml
+
+# Network topology discovery (CDP/LLDP)
+ansible-playbook playbooks/switches/network_topology_discovery.yml
+
+# Compliance check (security policies)
+ansible-playbook playbooks/switches/compliance_check.yml
+
+# Device health monitoring (CPU, memory, temperature)
+ansible-playbook playbooks/switches/device_health_monitor.yml
+
+# MAC address tracking
+ansible-playbook playbooks/switches/mac_address_tracking.yml
+# Optional: Search for specific MAC
+ansible-playbook playbooks/switches/mac_address_tracking.yml --extra-vars 'mac_address=xxxx.xxxx.xxxx'
 ```
 
 **Routers:**

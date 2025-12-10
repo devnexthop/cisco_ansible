@@ -1,0 +1,108 @@
+---
+- name: Device Health Monitoring
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get system resources
+      cisco.ios.ios_command:
+        commands:
+          - show processes cpu
+          - show memory
+          - show environment temperature
+          - show power
+          - show inventory
+      register: health_data
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Extract CPU utilization
+      ansible.builtin.set_fact:
+        cpu_usage: "{{ (health_data.stdout[0] | regex_findall('CPU utilization for five seconds: (\\d+)%') | first) | default('Unknown') }}"
+      when: 
+        - health_data.stdout is defined
+        - health_data.stdout | length > 0
+
+    - name: Extract memory information
+      ansible.builtin.set_fact:
+        memory_total: "{{ (health_data.stdout[1] | regex_findall('(\\d+)K bytes of physical memory') | first) | default('Unknown') }}"
+        memory_used: "{{ (health_data.stdout[1] | regex_findall('(\\d+)K bytes of memory') | first) | default('Unknown') }}"
+      when: 
+        - health_data.stdout is defined
+        - health_data.stdout | length > 1
+
+    - name: Extract temperature
+      ansible.builtin.set_fact:
+        temperature: "{{ (health_data.stdout[2] | regex_findall('Temperature: (\\d+)') | first) | default('Unknown') }}"
+      when: 
+        - health_data.stdout is defined
+        - health_data.stdout | length > 2
+
+    - name: Extract power supply status
+      ansible.builtin.set_fact:
+        power_supplies: "{{ health_data.stdout[3].split('\\n') | select('match', 'Power Supply') | list }}"
+      when: 
+        - health_data.stdout is defined
+        - health_data.stdout | length > 3
+
+    - name: Extract uptime
+      cisco.ios.ios_command:
+        commands:
+          - show version | include uptime
+      register: uptime_info
+      failed_when: false
+
+    - name: Parse uptime
+      ansible.builtin.set_fact:
+        uptime: "{{ (uptime_info.stdout[0] | regex_findall('uptime is (.+)') | first) | default('Unknown') }}"
+      when: 
+        - uptime_info.stdout is defined
+        - uptime_info.stdout | length > 0
+
+    - name: Display device health status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          DEVICE HEALTH MONITORING
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          ========================================
+          CPU Utilization: {{ cpu_usage | default('Unknown') }}%
+          Memory: {{ memory_used | default('Unknown') }}K / {{ memory_total | default('Unknown') }}K
+          Temperature: {{ temperature | default('Unknown') }}°C
+          Uptime: {{ uptime | default('Unknown') }}
+          Power Supplies: {{ power_supplies | default([]) | length }} found
+          ========================================
+
+    - name: Display power supply details
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      loop: "{{ power_supplies | default([]) }}"
+      when: 
+        - power_supplies is defined
+        - power_supplies | length > 0
+
+    - name: Check health thresholds
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          HEALTH STATUS CHECK
+          ========================================
+          CPU: {{ '⚠ WARNING - High CPU' if (cpu_usage | default(0) | int > 80) else '✓ OK' }}
+          Memory: {{ '⚠ WARNING - High Memory' if (memory_used | default(0) | int > (memory_total | default(100) | int * 0.8)) else '✓ OK' }}
+          Temperature: {{ '⚠ WARNING - High Temperature' if (temperature | default(0) | int > 60) else '✓ OK' }}
+          ========================================
+      when: 
+        - cpu_usage is defined
+        - memory_used is defined
+        - temperature is defined
+

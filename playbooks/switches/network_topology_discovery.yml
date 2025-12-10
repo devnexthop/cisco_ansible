@@ -1,0 +1,79 @@
+---
+- name: Network Topology Discovery
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get CDP neighbors
+      cisco.ios.ios_command:
+        commands:
+          - show cdp neighbors detail
+      register: cdp_neighbors
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Get LLDP neighbors (if available)
+      cisco.ios.ios_command:
+        commands:
+          - show lldp neighbors detail
+      register: lldp_neighbors
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Get CDP neighbors brief
+      cisco.ios.ios_command:
+        commands:
+          - show cdp neighbors
+      register: cdp_brief
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Extract CDP neighbor information
+      ansible.builtin.set_fact:
+        cdp_devices: "{{ cdp_devices | default([]) + [{'local_port': item.split()[1] if item.split() | length > 1 else 'unknown', 'device_id': item.split()[0] if item.split() | length > 0 else 'unknown', 'remote_port': item.split()[3] if item.split() | length > 3 else 'unknown', 'capability': item.split()[4] if item.split() | length > 4 else 'unknown'}] }}"
+      loop: "{{ cdp_brief.stdout[0].split('\\n') | select('match', '^[A-Z]') | list }}"
+      when: 
+        - cdp_brief.stdout is defined
+        - cdp_brief.stdout | length > 0
+
+    - name: Display network topology
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          NETWORK TOPOLOGY DISCOVERY
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          ========================================
+          CDP Neighbors Found: {{ cdp_devices | default([]) | length }}
+          ========================================
+
+    - name: Display each CDP neighbor
+      ansible.builtin.debug:
+        msg: |
+          Local Port: {{ item.local_port }}
+          Remote Device: {{ item.device_id }}
+          Remote Port: {{ item.remote_port }}
+          Capability: {{ item.capability }}
+          ---
+      loop: "{{ cdp_devices | default([]) }}"
+      when: 
+        - cdp_devices is defined
+        - cdp_devices | length > 0
+
+    - name: Display no neighbors message
+      ansible.builtin.debug:
+        msg: "No CDP neighbors found on this device"
+      when: 
+        - cdp_devices is not defined or cdp_devices | length == 0
+

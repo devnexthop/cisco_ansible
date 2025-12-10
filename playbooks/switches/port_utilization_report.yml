@@ -1,0 +1,88 @@
+---
+- name: Port Utilization Report
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get interface status
+      cisco.ios.ios_command:
+        commands:
+          - show interfaces status
+      register: interface_status
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Get interface descriptions
+      cisco.ios.ios_command:
+        commands:
+          - show interfaces description
+      register: interface_desc
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Get interface brief
+      cisco.ios.ios_command:
+        commands:
+          - show ip interface brief
+      register: interface_brief
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Parse interface status
+      ansible.builtin.set_fact:
+        interfaces: "{{ interfaces | default([]) + [{'port': item.split()[0], 'status': item.split()[1] if item.split() | length > 1 else 'unknown', 'vlan': item.split()[2] if item.split() | length > 2 else 'unknown', 'duplex': item.split()[3] if item.split() | length > 3 else 'unknown', 'speed': item.split()[4] if item.split() | length > 4 else 'unknown', 'type': item.split()[5] if item.split() | length > 5 else 'unknown'}] }}"
+      loop: "{{ interface_status.stdout[0].split('\\n') | select('match', '^(Gi|Te|Fa|Po)') | list }}"
+      when: 
+        - interface_status.stdout is defined
+        - interface_status.stdout | length > 0
+
+    - name: Count port statistics
+      ansible.builtin.set_fact:
+        port_stats:
+          total: "{{ interfaces | length }}"
+          connected: "{{ interfaces | selectattr('status', 'equalto', 'connected') | list | length }}"
+          notconnect: "{{ interfaces | selectattr('status', 'equalto', 'notconnect') | list | length }}"
+          disabled: "{{ interfaces | selectattr('status', 'equalto', 'disabled') | list | length }}"
+
+    - name: Display port utilization summary
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          PORT UTILIZATION REPORT
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          ========================================
+          Total Ports: {{ port_stats.total | default(0) }}
+          Connected: {{ port_stats.connected | default(0) }}
+          Not Connected: {{ port_stats.notconnect | default(0) }}
+          Disabled: {{ port_stats.disabled | default(0) }}
+          Utilization: {{ ((port_stats.connected | default(0) | int / port_stats.total | default(1) | int) * 100) | round(2) }}%
+          ========================================
+
+    - name: Display unused ports (notconnect)
+      ansible.builtin.debug:
+        msg: "Unused Port: {{ item.port }} ({{ item.status }})"
+      loop: "{{ interfaces | selectattr('status', 'equalto', 'notconnect') | list }}"
+      when: 
+        - interfaces is defined
+        - (interfaces | selectattr('status', 'equalto', 'notconnect') | list | length) > 0
+
+    - name: Display disabled ports
+      ansible.builtin.debug:
+        msg: "Disabled Port: {{ item.port }} ({{ item.status }})"
+      loop: "{{ interfaces | selectattr('status', 'equalto', 'disabled') | list }}"
+      when: 
+        - interfaces is defined
+        - (interfaces | selectattr('status', 'equalto', 'disabled') | list | length) > 0
+

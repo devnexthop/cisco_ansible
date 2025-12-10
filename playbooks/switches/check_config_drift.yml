@@ -1,0 +1,80 @@
+---
+- name: Check Configuration Drift
+  hosts: switches
+  gather_facts: no
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get running configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: running_config
+      failed_when: false
+      vars:
+        ansible_command_timeout: 180
+
+    - name: Get startup configuration
+      cisco.ios.ios_command:
+        commands:
+          - show startup-config
+      register: startup_config
+      failed_when: false
+      vars:
+        ansible_command_timeout: 180
+
+    - name: Check if running and startup configs match
+      ansible.builtin.set_fact:
+        configs_match: "{{ running_config.stdout[0] == startup_config.stdout[0] }}"
+      when: 
+        - running_config.stdout is defined
+        - startup_config.stdout is defined
+        - running_config.stdout | length > 0
+        - startup_config.stdout | length > 0
+
+    - name: Display configuration drift status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          CONFIGURATION DRIFT CHECK
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          Status: {{ '✓ Configurations Match' if configs_match else '⚠ DRIFT DETECTED - Running config differs from startup config' }}
+          ========================================
+      when: configs_match is defined
+
+    - name: Show drift warning if configs don't match
+      ansible.builtin.debug:
+        msg: |
+          ⚠ WARNING: Configuration drift detected!
+          Running configuration differs from startup configuration.
+          Changes have been made but not saved.
+          Run 'write memory' or 'copy running-config startup-config' to save changes.
+      when: 
+        - configs_match is defined
+        - configs_match == false
+
+    - name: Count lines difference (if drift detected)
+      ansible.builtin.set_fact:
+        running_lines: "{{ running_config.stdout[0].split('\\n') | length }}"
+        startup_lines: "{{ startup_config.stdout[0].split('\\n') | length }}"
+      when: 
+        - configs_match is defined
+        - configs_match == false
+        - running_config.stdout is defined
+        - startup_config.stdout is defined
+
+    - name: Display line count difference
+      ansible.builtin.debug:
+        msg: "Running config: {{ running_lines }} lines | Startup config: {{ startup_lines }} lines | Difference: {{ running_lines | int - startup_lines | int }} lines"
+      when: 
+        - running_lines is defined
+        - startup_lines is defined
+

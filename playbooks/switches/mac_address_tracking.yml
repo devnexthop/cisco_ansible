@@ -1,0 +1,101 @@
+---
+- name: MAC Address Tracking
+  hosts: switches
+  gather_facts: no
+  vars:
+    search_mac: "{{ mac_address | default('') }}"
+
+  tasks:
+    - name: Disable paging
+      cisco.ios.ios_command:
+        commands:
+          - terminal length 0
+      register: paging_result
+      ignore_errors: yes
+
+    - name: Get MAC address table
+      cisco.ios.ios_command:
+        commands:
+          - show mac address-table
+      register: mac_table
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Get MAC address table count
+      cisco.ios.ios_command:
+        commands:
+          - show mac address-table count
+      register: mac_count
+      failed_when: false
+      vars:
+        ansible_command_timeout: 60
+
+    - name: Display MAC address table statistics
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          MAC ADDRESS TABLE STATISTICS
+          ========================================
+          Switch: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          ========================================
+          {{ mac_count.stdout[0] if mac_count.stdout is defined else 'MAC count information not available' }}
+          ========================================
+
+    - name: Search for specific MAC address
+      ansible.builtin.set_fact:
+        normalized_mac: "{{ search_mac | replace('-', '.') | replace(':', '.') | upper }}"
+      when: search_mac != ""
+
+    - name: Find MAC address in table
+      ansible.builtin.set_fact:
+        mac_found: "{{ normalized_mac in mac_table.stdout[0] | upper }}"
+        mac_entry_lines: "{{ mac_table.stdout[0].split('\\n') | select('search', normalized_mac) | list }}"
+      when: 
+        - search_mac != ""
+        - mac_table.stdout is defined
+        - mac_table.stdout | length > 0
+
+    - name: Extract MAC address details
+      ansible.builtin.set_fact:
+        mac_details: "{{ mac_details | default([]) + [{'mac': normalized_mac, 'port': (item | regex_findall('(Gi\\d+/\\d+/\\d+|Te\\d+/\\d+/\\d+|Fa\\d+/\\d+/\\d+|Po\\d+)') | first | default('Unknown')), 'vlan': (item | regex_findall('^(\\d+)\\s+') | first | default('Unknown')), 'type': (item | regex_findall('(STATIC|DYNAMIC|SECURE)') | first | default('Unknown'))}] }}"
+      loop: "{{ mac_entry_lines | default([]) }}"
+      when: 
+        - mac_found is defined
+        - mac_found == true
+        - mac_entry_lines is defined
+
+    - name: Display MAC address search results
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          MAC ADDRESS SEARCH RESULTS
+          ========================================
+          Switch: {{ inventory_hostname }}
+          MAC Address: {{ normalized_mac }}
+          Status: {{ '✓ FOUND' if mac_found else '✗ NOT FOUND' }}
+          ========================================
+      when: search_mac != ""
+
+    - name: Display MAC address details
+      ansible.builtin.debug:
+        msg: |
+          Entry {{ loop.index }}:
+            MAC: {{ item.mac }}
+            Port: {{ item.port }}
+            VLAN: {{ item.vlan }}
+            Type: {{ item.type }}
+      loop: "{{ mac_details | default([]) }}"
+      when: 
+        - mac_details is defined
+        - mac_details | length > 0
+
+    - name: Display all MAC addresses (first 20)
+      ansible.builtin.debug:
+        msg: "{{ mac_table.stdout[0].split('\\n')[:20] }}"
+      when: 
+        - search_mac == ""
+        - mac_table.stdout is defined
+        - mac_table.stdout | length > 0
+
