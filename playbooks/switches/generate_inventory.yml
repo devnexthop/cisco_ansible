@@ -30,21 +30,21 @@
 
     - name: Extract software version from show version
       ansible.builtin.set_fact:
-        software_version: "{{ (version_result.stdout[0] | regex_search('Version (\\S+)') | default([]) | first) | default('Unknown') }}"
+        software_version: "{{ ((version_result.stdout[0] | regex_search('Version (\\S+)')) | default([]) | first) | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
     - name: Extract model number (PID) from show inventory - Method 1 (NAME line)
       ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_search('NAME:\\s*\"([^\"]+)\"') | default([]) | first) | default('') }}"
+        model_pid: "{{ ((inventory_result.stdout[0] | regex_search('NAME:\\s*\"([^\"]+)\"')) | default([]) | first) | default('') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
 
     - name: Extract model number (PID) from show inventory - Method 2 (PID line)
       ansible.builtin.set_fact:
-        model_pid: "{{ (inventory_result.stdout[0] | regex_search('PID:\\s+(\\S+)') | default([]) | first) | default(model_pid | default('Unknown')) }}"
+        model_pid: "{{ ((inventory_result.stdout[0] | regex_search('PID:\\s+(\\S+)')) | default([]) | first) | default(model_pid | default('Unknown')) }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
@@ -52,7 +52,7 @@
 
     - name: Extract model number (PID) from show version - Method 3 (fallback)
       ansible.builtin.set_fact:
-        model_pid: "{{ (version_result.stdout[0] | regex_search('Model Number\\s+:\\s+(\\S+)') | default([]) | first) | default(model_pid | default('Unknown')) }}"
+        model_pid: "{{ ((version_result.stdout[0] | regex_search('Model Number\\s+:\\s+(\\S+)')) | default([]) | first) | default(model_pid | default('Unknown')) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
@@ -60,14 +60,14 @@
 
     - name: Extract serial number from show inventory
       ansible.builtin.set_fact:
-        serial_number: "{{ (inventory_result.stdout[0] | regex_search('SN:\\s+(\\S+)') | default([]) | first) | default('Unknown') }}"
+        serial_number: "{{ ((inventory_result.stdout[0] | regex_search('SN:\\s+(\\S+)')) | default([]) | first) | default('Unknown') }}"
       when: 
         - inventory_result.stdout is defined
         - inventory_result.stdout | length > 0
 
     - name: Extract serial number from show version (fallback)
       ansible.builtin.set_fact:
-        serial_number: "{{ (version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)') | default([]) | first) | default(serial_number | default('Unknown')) }}"
+        serial_number: "{{ ((version_result.stdout[0] | regex_search('System Serial Number\\s+:\\s+(\\S+)')) | default([]) | first) | default(serial_number | default('Unknown')) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
@@ -75,21 +75,21 @@
 
     - name: Extract hostname from show version
       ansible.builtin.set_fact:
-        device_hostname: "{{ (version_result.stdout[0] | regex_search('^([^\\s#]+)') | default([]) | first) | default(inventory_hostname) }}"
+        device_hostname: "{{ ((version_result.stdout[0] | regex_search('^([^\\s#]+)')) | default([]) | first) | default(inventory_hostname) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
     - name: Extract IOS version details
       ansible.builtin.set_fact:
-        ios_version: "{{ (version_result.stdout[0] | regex_search('IOS.*Version (\\S+)') | default([]) | first) | default(software_version | default('Unknown')) }}"
+        ios_version: "{{ ((version_result.stdout[0] | regex_search('IOS.*Version (\\S+)')) | default([]) | first) | default(software_version | default('Unknown')) }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
 
     - name: Extract ROM version
       ansible.builtin.set_fact:
-        rom_version: "{{ (version_result.stdout[0] | regex_search('ROM:.*Version (\\S+)') | default([]) | first) | default('Unknown') }}"
+        rom_version: "{{ ((version_result.stdout[0] | regex_search('ROM:.*Version (\\S+)')) | default([]) | first) | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
