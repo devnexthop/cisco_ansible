@@ -92,18 +92,11 @@
 
     - name: Extract ROM version
       ansible.builtin.set_fact:
-        rom_version: "Unknown"
+        rom_version: "{{ (version_result.stdout[0] | regex_findall('ROM:.*Version (\\S+)') | first) | default('Unknown') }}"
       when: 
         - version_result.stdout is defined
         - version_result.stdout | length > 0
-
-    - name: Extract ROM version (if present)
-      ansible.builtin.set_fact:
-        rom_version: "{{ (version_result.stdout[0] | regex_search('ROM:.*Version (\\S+)') | list | first) | default('Unknown') }}"
-      when: 
-        - version_result.stdout is defined
-        - version_result.stdout | length > 0
-        - "'ROM:' in version_result.stdout[0]"
+      failed_when: false
 
     - name: Display switch inventory information
       ansible.builtin.debug:
