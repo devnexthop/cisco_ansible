@@ -6,43 +6,20 @@ This repository contains Ansible playbooks, roles, and configurations for automa
 
 ```
 cisco_ansible/
-├── ansible.cfg          # Ansible configuration file
-├── .ansible-lint        # Ansible lint configuration
-├── Makefile             # Makefile for common tasks
-├── requirements.txt    # Python dependencies
-├── collections/         # Ansible collections requirements
-│   └── requirements.yml
-├── inventory/           # Inventory files for devices
-│   └── hosts.yml        # Main inventory file
+├── ansible.cfg          # Ansible configuration
+├── Makefile             # Common tasks (install, lint, test)
+├── inventory/hosts.yml  # Device inventory
 ├── playbooks/           # Ansible playbooks
-│   ├── firewalls/       # Firewall-specific playbooks
-│   ├── routers/         # Router-specific playbooks
-│   ├── switches/        # Switch-specific playbooks
-│   │   ├── backup_configs.yml
-│   │   ├── check_config_drift.yml
-│   │   ├── compliance_check.yml
-│   │   ├── device_health_monitor.yml
-│   │   ├── find_mac_address.yml
-│   │   ├── generate_inventory.yml
-│   │   ├── mac_address_tracking.yml
-│   │   ├── network_topology_discovery.yml
-│   │   ├── port_utilization_report.yml
-│   │   ├── verify_spanning_tree.yml
-│   │   └── verify_switch_versions.yml
-│   └── testing/         # Testing and validation playbooks
-│       ├── test_inventory.yml
-│       ├── test_ping.yml
-│       ├── test_snmp.yml
-│       └── test_ssh.yml
-├── roles/               # Reusable Ansible roles
-├── group_vars/          # Group-specific variables
-│   ├── all.yml          # Variables for all devices
-│   ├── ios.yml          # Variables for IOS devices
-│   ├── nxos.yml         # Variables for NX-OS devices
-│   ├── asa.yml          # Variables for ASA devices
-│   └── iosxe.yml        # Variables for IOS-XE devices
-├── host_vars/           # Host-specific variables
-├── backups/              # Configuration backups (gitignored)
+│   ├── switches/        # Switch playbooks (backup, compliance, health, etc.)
+│   ├── routers/         # Router playbooks
+│   ├── firewalls/       # Firewall playbooks
+│   └── testing/         # Connectivity tests
+├── group_vars/          # Variables by device type (ios, nxos, asa, iosxe)
+├── host_vars/           # Per-device variables
+├── roles/               # Reusable roles
+├── collections/         # Ansible Galaxy requirements
+├── docs/                # Documentation guides
+├── backups/             # Config backups (gitignored)
 └── reports/             # Generated reports (gitignored)
 ```
 
@@ -199,6 +176,20 @@ make clean            # Remove generated files (backups, reports)
 ## License
 
 This project is open source and available for use.
+
+## Documentation
+
+Detailed guides are available in the `docs/` folder:
+
+- [Ansible Tips](docs/ANSIBLE_TIPS.md) - Ad-hoc commands, playbook flags, host patterns
+- [Cisco IOS Modules](docs/CISCO_IOS_MODULES.md) - Module reference and examples
+- [Inventory Management](docs/INVENTORY_MANAGEMENT.md) - Adding/removing devices
+- [Scheduling](docs/ANSIBLE_SCHEDULING.md) - Cron, systemd, CI/CD scheduling
+- [Performance](docs/PERFORMANCE.md) - Optimization tips
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Quick Start](docs/QUICK_START.md) - Creating new playbooks
+- [File Permissions](docs/PLAYBOOK_FILE_PERMISSIONS.md) - chmod/chown playbooks
+- [IPAM API Testing](docs/IPAM_API_TESTING.md) - curl commands for IPAM systems
 
 ## Resources
 

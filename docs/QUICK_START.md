@@ -46,7 +46,7 @@ cp INVENTORY_MANAGEMENT.md MY_CUSTOM_GUIDE.md
 
 ### Step 1: Copy existing playbook
 ```bash
-cd /Users/marcinzgola/cisco_ansible
+cd /path/to/cisco_ansible
 cp playbooks/switches/backup_configs.yml playbooks/switches/my_custom_playbook.yml
 ```
 

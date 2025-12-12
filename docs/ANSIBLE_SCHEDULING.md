@@ -39,7 +39,7 @@ nano ~/ansible-scripts/daily-backup.sh
 # Daily backup script
 
 # Set working directory
-cd /Users/marcinzgola/cisco_ansible
+cd /path/to/cisco_ansible
 
 # Activate virtual environment (if using one)
 source ansible-env/bin/activate
@@ -64,7 +64,7 @@ chmod +x ~/ansible-scripts/daily-backup.sh
 crontab -e
 
 # Add this line (runs daily at 2:00 AM)
-0 2 * * * /Users/marcinzgola/ansible-scripts/daily-backup.sh >> /var/log/ansible-backup.log 2>&1
+0 2 * * * ~/ansible-scripts/daily-backup.sh >> /var/log/ansible-backup.log 2>&1
 ```
 
 #### Common Cron Examples
@@ -125,7 +125,7 @@ After=network.target
 [Service]
 Type=oneshot
 User=your-username
-WorkingDirectory=/Users/marcinzgola/cisco_ansible
+WorkingDirectory=/path/to/cisco_ansible
 ExecStart=/usr/bin/ansible-playbook playbooks/switches/backup_configs.yml
 StandardOutput=journal
 StandardError=journal
@@ -231,7 +231,7 @@ jobs:
 #!/bin/bash
 
 # Configuration
-ANSIBLE_DIR="/Users/marcinzgola/cisco_ansible"
+ANSIBLE_DIR="/path/to/cisco_ansible"
 LOG_FILE="/var/log/ansible/daily-backup.log"
 DATE=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -277,7 +277,7 @@ chmod +x ~/ansible-scripts/daily-switch-backup.sh
 crontab -e
 
 # Add this line (daily at 2:00 AM)
-0 2 * * * /Users/marcinzgola/ansible-scripts/daily-switch-backup.sh
+0 2 * * * ~/ansible-scripts/daily-switch-backup.sh
 ```
 
 ### Example 2: Hourly Health Check
@@ -287,7 +287,7 @@ crontab -e
 ```bash
 #!/bin/bash
 
-ANSIBLE_DIR="/Users/marcinzgola/cisco_ansible"
+ANSIBLE_DIR="/path/to/cisco_ansible"
 LOG_FILE="/var/log/ansible/health-check.log"
 DATE=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -310,7 +310,7 @@ fi
 
 **Add to crontab (every hour):**
 ```bash
-0 * * * * /Users/marcinzgola/ansible-scripts/hourly-health-check.sh
+0 * * * * ~/ansible-scripts/hourly-health-check.sh
 ```
 
 ### Example 3: Weekly Compliance Check
@@ -320,7 +320,7 @@ fi
 ```bash
 #!/bin/bash
 
-ANSIBLE_DIR="/Users/marcinzgola/cisco_ansible"
+ANSIBLE_DIR="/path/to/cisco_ansible"
 LOG_FILE="/var/log/ansible/compliance-check.log"
 DATE=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -343,7 +343,7 @@ fi
 
 **Add to crontab (every Monday at 3:00 AM):**
 ```bash
-0 3 * * 1 /Users/marcinzgola/ansible-scripts/weekly-compliance.sh
+0 3 * * 1 ~/ansible-scripts/weekly-compliance.sh
 ```
 
 ## Best Practices
